@@ -186,21 +186,26 @@
       document.getElementById('btn-status').onclick = () => send('status');
       document.getElementById('btn-stop').onclick   = () => send('stop');
       document.getElementById('btn-run').onclick    = () => send('run');
-      document.getElementById('btn-ref').onclick    = () => { send('positions'); };
-
-      // demo data if not inside Telegram
-    //  if (!tg) {
+      document.getElementById('btn-ref').onclick = () => {
         setPositions([
           { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
           { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() - 640_000 },
           { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() - 12_000 },
+        ]);
+        if (tg) send('positions');
+      };
+
+      // demo data if not inside Telegram
+      if (!tg) {
+        setPositions([
           { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
           { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() - 640_000 },
-          { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() - 12_000 },
-          { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
-          { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() - 640_000 },
-          { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() - 12_000 },
           { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() - 12_000 },
         ]);
-   //   }
+      }
     }
+
+    init();
+  </script>
+</body>
+</html>
