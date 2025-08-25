@@ -1,100 +1,192 @@
 <!-- ======================== index.html ======================== -->
-<div class="wrap">
-<div class="card">
-<h1>Scalper Control</h1>
-<div class="muted">Mini App (GitHub Pages). Открыл: <span id="who">—</span></div>
-</div>
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scalper Control — Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #0e0e10;     /* fallback */
+      --txt: #ffffff;    /* fallback */
+      --muted: #9aa0a6;  /* fallback */
+      --card: #1a1b1e;   /* fallback */
+      --btn: #2d7ef7;    /* fallback */
+      --tab: #22242a;    /* fallback */
+      --tab-active: #2d7ef7; /* fallback */
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: var(--bg);
+      color: var(--txt);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    }
+    .wrap { max-width: 820px; margin: 0 auto; padding: 20px; padding-bottom: 90px; }
+    .card { background: var(--card); border-radius: 16px; padding: 16px 18px; margin-bottom: 14px; }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    .muted { color: var(--muted); font-size: 14px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    button {
+      appearance: none; border: 0; border-radius: 12px; padding: 12px 14px; cursor: pointer;
+      background: var(--btn); color: white; font-weight: 600; font-size: 14px;
+    }
+    input[type="text"], input[type="number"] {
+      background: #0f1115; color: var(--txt); border: 1px solid #2a2f35; border-radius: 10px;
+      padding: 10px 12px; outline: none; min-width: 140px;
+    }
+    code { background: #0f1115; padding: 2px 6px; border-radius: 6px; }
 
+    /* ===== bottom tabbar ===== */
+    .tabbar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+      background: var(--tab);
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+      padding: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .tabbar button {
+      background: transparent; border: 0; color: var(--muted); font-weight: 700; font-size: 14px;
+      padding: 12px 10px; border-radius: 12px; transition: 0.15s ease;
+    }
+    .tabbar button.active {
+      background: rgba(255,255,255,0.06); color: var(--txt);
+      outline: 2px solid rgba(255,255,255,0.08);
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Scalper Control</h1>
+      <div class="muted">Mini App (GitHub Pages). Открыл: <span id="who">—</span></div>
+    </div>
 
-<div class="card">
-<div class="row">
-<button id="btn-run">▶️ Run</button>
-<button id="btn-stop">⏹ Stop</button>
-<button id="btn-status">ℹ️ Status</button>
-</div>
-</div>
+    <!-- ============== POSITIONS TAB ============== -->
+    <section id="tab-positions">
+      <div class="card">
+        <div class="row">
+          <button id="btn-run">▶️ Run</button>
+          <button id="btn-stop">⏹ Stop</button>
+          <button id="btn-status">ℹ️ Status</button>
+        </div>
+      </div>
 
+      <div class="card">
+        <div class="muted">(Здесь позже можно вывести таблицу открытых позиций, PnL, кнопки Close/TP/SL и т.п.)</div>
+      </div>
+    </section>
 
-<div class="card">
-<div class="row" style="align-items:center;">
-<input id="param-key" type="text" placeholder="key (например: speed)" />
-<input id="param-val" type="text" placeholder="value (например: 0.2)" />
-<button id="btn-set">Set Param</button>
-</div>
-<div class="muted" style="margin-top:8px;">Отправляет боту JSON через <code>sendData()</code>.</div>
-</div>
+    <!-- ============== SETTINGS TAB ============== -->
+    <section id="tab-settings" class="hidden">
+      <div class="card">
+        <div class="row" style="align-items:center;">
+          <input id="param-key" type="text" placeholder="key (например: speed)" />
+          <input id="param-val" type="text" placeholder="value (например: 0.2)" />
+          <button id="btn-set">Set Param</button>
+        </div>
+        <div class="muted" style="margin-top:8px;">Отправляет боту JSON через <code>sendData()</code>.</div>
+      </div>
 
+      <div class="card">
+        <div class="muted">start_param: <code id="start-param">—</code></div>
+        <div class="muted">initData: <code id="init-data">—</code></div>
+      </div>
+    </section>
+  </div>
 
-<div class="card">
-<div class="muted">start_param: <code id="start-param">—</code></div>
-<div class="muted">initData: <code id="init-data">—</code></div>
-</div>
-</div>
+  <!-- bottom tabbar -->
+  <nav class="tabbar">
+    <button id="tabbtn-positions" class="active" data-tab="positions">📊 Position</button>
+    <button id="tabbtn-settings" data-tab="settings">⚙️ Settings</button>
+  </nav>
 
+  <script>
+    const tg = window.Telegram?.WebApp;
+    const state = { tab: 'positions' };
 
-<script>
-const tg = window.Telegram?.WebApp;
+    // Применяем цвета темы Telegram к CSS переменным
+    function applyTheme(tp = tg?.themeParams || {}) {
+      const map = {
+        '--bg': tp.bg_color,
+        '--txt': tp.text_color,
+        '--muted': tp.hint_color,
+        '--card': tp.secondary_bg_color,
+        '--btn': tp.button_color,
+        '--tab': tp.secondary_bg_color,
+        '--tab-active': tp.button_color,
+      };
+      for (const k in map) if (map[k]) document.documentElement.style.setProperty(k, map[k]);
+    }
 
+    function send(cmd, extra = {}) {
+      const payload = JSON.stringify({ cmd, ...extra });
+      if (!tg) { alert('Not in Telegram WebApp. Payload: ' + payload); return; }
+      tg.sendData(payload);
+    }
 
-// Функция подстановки темы из Telegram в CSS-переменные
-function applyTheme(tp = tg?.themeParams || {}) {
-const map = {
-'--bg': tp.bg_color,
-'--txt': tp.text_color,
-'--muted': tp.hint_color,
-'--card': tp.secondary_bg_color,
-'--btn': tp.button_color,
-};
-for (const k in map) if (map[k]) document.documentElement.style.setProperty(k, map[k]);
-}
+    function switchTab(tab) {
+      state.tab = tab;
+      const pos = document.getElementById('tab-positions');
+      const set = document.getElementById('tab-settings');
+      const bPos = document.getElementById('tabbtn-positions');
+      const bSet = document.getElementById('tabbtn-settings');
 
+      const onPos = tab === 'positions';
+      pos.classList.toggle('hidden', !onPos);
+      set.classList.toggle('hidden', onPos);
+      bPos.classList.toggle('active', onPos);
+      bSet.classList.toggle('active', !onPos);
 
-function send(cmd, extra = {}) {
-const payload = JSON.stringify({ cmd, ...extra });
-if (!tg) { alert('Not in Telegram WebApp. Payload: ' + payload); return; }
-tg.sendData(payload);
-}
+      // MainButton — показываем только на вкладке Positions (как дубль Run)
+      if (tg) {
+        if (onPos) {
+          tg.MainButton.setText('Start').show();
+        } else {
+          tg.MainButton.hide();
+        }
+      }
+    }
 
+    function init() {
+      if (!tg) {
+        document.getElementById('who').textContent = 'outside Telegram (debug)';
+      } else {
+        tg.ready();
+        tg.expand();
+        applyTheme();
+        tg.onEvent('themeChanged', () => applyTheme());
 
-function init() {
-if (!tg) {
-document.getElementById('who').textContent = 'outside Telegram (debug)';
-return;
-}
+        const user = tg.initDataUnsafe?.user;
+        document.getElementById('who').textContent = user ? `${user.first_name} (${user.id})` : 'unknown';
+        document.getElementById('start-param').textContent = tg.initDataUnsafe?.start_param || '—';
+        document.getElementById('init-data').textContent = tg.initData || '—';
 
+        tg.MainButton.onClick(() => send('run'));
+      }
 
-tg.ready();
-tg.expand();
-applyTheme();
-tg.onEvent('themeChanged', () => applyTheme());
+      // handlers
+      document.getElementById('btn-run').onclick = () => send('run');
+      document.getElementById('btn-stop').onclick = () => send('stop');
+      document.getElementById('btn-status').onclick = () => send('status');
+      document.getElementById('btn-set').onclick = () => {
+        const key = document.getElementById('param-key').value.trim();
+        const value = document.getElementById('param-val').value.trim();
+        if (!key) return alert('Введите key');
+        send('set', { key, value });
+      };
 
+      // tabs
+      document.getElementById('tabbtn-positions').onclick = () => switchTab('positions');
+      document.getElementById('tabbtn-settings').onclick = () => switchTab('settings');
 
-const user = tg.initDataUnsafe?.user;
-document.getElementById('who').textContent = user ? `${user.first_name} (${user.id})` : 'unknown';
+      switchTab('positions');
+    }
 
-
-document.getElementById('start-param').textContent = tg.initDataUnsafe?.start_param || '—';
-document.getElementById('init-data').textContent = tg.initData || '—';
-
-
-// MainButton как дубль "Run"
-tg.MainButton.setText('Start').show();
-tg.MainButton.onClick(() => send('run'));
-
-
-document.getElementById('btn-run').onclick = () => send('run');
-document.getElementById('btn-stop').onclick = () => send('stop');
-document.getElementById('btn-status').onclick = () => send('status');
-document.getElementById('btn-set').onclick = () => {
-const key = document.getElementById('param-key').value.trim();
-const value = document.getElementById('param-val').value.trim();
-if (!key) return alert('Введите key');
-send('set', { key, value });
-};
-}
-
-
-init();
-</script>
+    init();
+  </script>
 </body>
 </html>
