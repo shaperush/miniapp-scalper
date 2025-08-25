@@ -11,10 +11,10 @@
       --bg: #0e0e10;     /* fallback */
       --txt: #ffffff;    /* fallback */
       --muted: #9aa0a6;  /* fallback */
-      --card: #1a1b1e;   /* fallback */
       --btn: #2d7ef7;    /* fallback */
       --ok: #12d27c;     /* green */
       --bad: #ff5a5f;    /* red */
+      --line: rgba(255,255,255,.07);
     }
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
@@ -24,21 +24,38 @@
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
       -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
     }
-    .wrap { width: 100%; margin: 0; padding: 12px 0 24px; }
-    .card { background: transparent; border-radius: 0; padding: 16px; margin: 0; }
-    h1 { font-size: 20px; margin: 0 0 8px; }
-    .muted { color: var(--muted); font-size: 14px; }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; }
-    button {
-      appearance: none; border: 0; border-radius: 12px; padding: 12px 14px; cursor: pointer;
-      background: var(--btn); color: white; font-weight: 600; font-size: 14px;
-    }
-    .btn-ghost { background: rgba(255,255,255,.06); border: 0; color: var(--txt); }
 
-    /* ===== positions list ===== */
+    /* ===== HEADER ===== */
+    .header {
+      height: 70px;
+      background: var(--btn);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center; /* центрируем по горизонтали */
+      padding: calc(env(safe-area-inset-top, 0px)) 16px 0 16px;
+    }
+    .header-title { font-weight: 800; letter-spacing: .2px; text-align: center; width: 100%; }
+
+    /* ===== LAYOUT: edge-to-edge ===== */
+    .wrap { width: 100%; margin: 0; padding: 0; }
+    .section { padding: 14px 16px; }
+    .section + .section { border-top: 1px solid var(--line); }
+
+    .muted { color: var(--muted); font-size: 14px; }
+
+    /* ===== ACTIONS ===== */
+    .actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .actions button {
+      appearance: none; border: 0; border-radius: 12px; padding: 12px 0; cursor: pointer;
+      background: var(--btn); color: #fff; font-weight: 700; font-size: 14px; width: 100%;
+    }
+
+    /* ===== POSITIONS ===== */
     .positions-header { display: flex; justify-content: space-between; align-items: center; }
-    .list { display: grid; gap: 8px; }
-    .item { display: grid; grid-template-columns: 1.1fr .6fr .6fr auto; align-items: center; gap: 8px; padding: 14px 16px; }
+    .list { display: grid; }
+    .item { display: grid; grid-template-columns: 1.1fr .6fr .6fr auto; align-items: center; gap: 8px; padding: 14px 16px; border-top: 1px solid var(--line); }
+    .item:first-child { border-top: 0; }
     .sym { font-weight: 700; letter-spacing: .3px; }
     .pnl { font-variant-numeric: tabular-nums; }
     .pnl.positive { color: var(--ok); }
@@ -48,30 +65,28 @@
   </style>
 </head>
 <body>
+  <header class="header">
+    <div id="total-pnl" class="header-title">total pnl: 0.00%</div>
+  </header>
   <div class="wrap">
-    <div class="card">
-      <h1>Scalper Control</h1>
-      <div class="muted">Mini App (GitHub Pages). Открыл: <span id="who">—</span></div>
-    </div>
-
-    <!-- top actions -->
-    <div class="card">
-      <div class="row">
-        <button id="btn-status">ℹ️ Status</button>
-        <button id="btn-stop" class="btn-ghost">⏹ Stop</button>
-        <button id="btn-run">▶️ Run</button>
-        <button id="btn-ref" class="btn-ghost">🔄 Ref</button>
+    <!-- ACTIONS (edge-to-edge) -->
+    <section class="section">
+      <div class="actions">
+        <button id="btn-status">Status</button>
+        <button id="btn-stop">Stop</button>
+        <button id="btn-run">Run</button>
+        <button id="btn-ref">Ref</button>
       </div>
-    </div>
+    </section>
 
-    <!-- active positions -->
-    <div class="card">
+    <!-- POSITIONS (edge-to-edge) -->
+    <section class="section">
       <div class="positions-header">
         <div style="font-weight:700">Active positions</div>
         <div class="muted" id="positions-count">0</div>
       </div>
       <div class="list" id="positions-list"></div>
-    </div>
+    </section>
   </div>
 
   <script>
@@ -83,7 +98,6 @@
         '--bg': tp.bg_color,
         '--txt': tp.text_color,
         '--muted': tp.hint_color,
-        '--card': tp.secondary_bg_color,
         '--btn': tp.button_color,
         '--ok': tp.link_color || '#12d27c'
       };
@@ -119,7 +133,7 @@
       const cnt = document.getElementById('positions-count');
       root.innerHTML = '';
       cnt.textContent = positions.length;
-      positions.forEach((p, idx) => {
+      positions.forEach((p) => {
         const row = document.createElement('div');
         row.className = 'item';
         const pnlClass = (p.pnl ?? 0) >= 0 ? 'positive' : 'negative';
@@ -138,6 +152,16 @@
           send('close', { symbol: sym });
         };
       });
+      // total pnl header update
+      try {
+        const total = positions.reduce((s,p)=> s + (Number(p.pnl)||0), 0);
+        const el = document.getElementById('total-pnl');
+        if (el) {
+          const sign = total > 0 ? '+' : total < 0 ? '' : '';
+          el.textContent = `total pnl: ${sign}${(total*100).toFixed(2)}%`;
+          el.style.color = total > 0 ? 'var(--ok)' : total < 0 ? 'var(--bad)' : '#fff';
+        }
+      } catch(_) {}
       // initial update of timers
       updateHolds();
     }
@@ -157,11 +181,7 @@
         tg.expand();
         applyTheme();
         tg.onEvent('themeChanged', () => applyTheme());
-        const user = tg.initDataUnsafe?.user;
-        document.getElementById('who').textContent = user ? `${user.first_name} (${user.id})` : 'unknown';
         try { tg.MainButton.hide(); } catch(e) {}
-      } else {
-        document.getElementById('who').textContent = 'outside Telegram (debug)';
       }
 
       // top actions
@@ -171,16 +191,18 @@
       document.getElementById('btn-ref').onclick    = () => { send('positions'); };
 
       // demo data if not inside Telegram
-     // if (!tg) {
+    //  if (!tg) {
         setPositions([
           { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
           { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() - 640_000 },
           { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() - 12_000 },
+          { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
+          { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() - 640_000 },
+          { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() - 12_000 },
+          { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
+          { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() - 640_000 },
+          { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() - 12_000 },
+          { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() - 12_000 },
         ]);
-      }
- //   }
-
-    init();
-  </script>
-</body>
-</html>
+   //   }
+    }
