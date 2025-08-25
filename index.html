@@ -1,0 +1,100 @@
+<!-- ======================== index.html ======================== -->
+<div class="wrap">
+<div class="card">
+<h1>Scalper Control</h1>
+<div class="muted">Mini App (GitHub Pages). Открыл: <span id="who">—</span></div>
+</div>
+
+
+<div class="card">
+<div class="row">
+<button id="btn-run">▶️ Run</button>
+<button id="btn-stop">⏹ Stop</button>
+<button id="btn-status">ℹ️ Status</button>
+</div>
+</div>
+
+
+<div class="card">
+<div class="row" style="align-items:center;">
+<input id="param-key" type="text" placeholder="key (например: speed)" />
+<input id="param-val" type="text" placeholder="value (например: 0.2)" />
+<button id="btn-set">Set Param</button>
+</div>
+<div class="muted" style="margin-top:8px;">Отправляет боту JSON через <code>sendData()</code>.</div>
+</div>
+
+
+<div class="card">
+<div class="muted">start_param: <code id="start-param">—</code></div>
+<div class="muted">initData: <code id="init-data">—</code></div>
+</div>
+</div>
+
+
+<script>
+const tg = window.Telegram?.WebApp;
+
+
+// Функция подстановки темы из Telegram в CSS-переменные
+function applyTheme(tp = tg?.themeParams || {}) {
+const map = {
+'--bg': tp.bg_color,
+'--txt': tp.text_color,
+'--muted': tp.hint_color,
+'--card': tp.secondary_bg_color,
+'--btn': tp.button_color,
+};
+for (const k in map) if (map[k]) document.documentElement.style.setProperty(k, map[k]);
+}
+
+
+function send(cmd, extra = {}) {
+const payload = JSON.stringify({ cmd, ...extra });
+if (!tg) { alert('Not in Telegram WebApp. Payload: ' + payload); return; }
+tg.sendData(payload);
+}
+
+
+function init() {
+if (!tg) {
+document.getElementById('who').textContent = 'outside Telegram (debug)';
+return;
+}
+
+
+tg.ready();
+tg.expand();
+applyTheme();
+tg.onEvent('themeChanged', () => applyTheme());
+
+
+const user = tg.initDataUnsafe?.user;
+document.getElementById('who').textContent = user ? `${user.first_name} (${user.id})` : 'unknown';
+
+
+document.getElementById('start-param').textContent = tg.initDataUnsafe?.start_param || '—';
+document.getElementById('init-data').textContent = tg.initData || '—';
+
+
+// MainButton как дубль "Run"
+tg.MainButton.setText('Start').show();
+tg.MainButton.onClick(() => send('run'));
+
+
+document.getElementById('btn-run').onclick = () => send('run');
+document.getElementById('btn-stop').onclick = () => send('stop');
+document.getElementById('btn-status').onclick = () => send('status');
+document.getElementById('btn-set').onclick = () => {
+const key = document.getElementById('param-key').value.trim();
+const value = document.getElementById('param-val').value.trim();
+if (!key) return alert('Введите key');
+send('set', { key, value });
+};
+}
+
+
+init();
+</script>
+</body>
+</html>
