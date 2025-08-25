@@ -144,7 +144,7 @@
       // MainButton — показываем только на вкладке Positions (как дубль Run)
       if (tg) {
         if (onPos) {
-          tg.MainButton.setText('Start').show();
+          tg.MainButton.hide();
         } else {
           tg.MainButton.hide();
         }
@@ -158,15 +158,13 @@
         tg.ready();
         tg.expand();
         applyTheme();
+        try { tg.MainButton.hide(); } catch(e) {}
         tg.onEvent('themeChanged', () => applyTheme());
 
         const user = tg.initDataUnsafe?.user;
         document.getElementById('who').textContent = user ? `${user.first_name} (${user.id})` : 'unknown';
         document.getElementById('start-param').textContent = tg.initDataUnsafe?.start_param || '—';
-        document.getElementById('init-data').textContent = tg.initData || '—';
-
-        tg.MainButton.onClick(() => send('run'));
-      }
+        document.getElementById('init-data').textContent = tg.initData || '—';}
 
       // handlers
       document.getElementById('btn-run').onclick = () => send('run');
