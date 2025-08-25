@@ -24,8 +24,8 @@
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
       -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
     }
-    .wrap { max-width: 820px; margin: 0 auto; padding: 20px; padding-bottom: 24px; }
-    .card { background: var(--card); border-radius: 16px; padding: 16px 18px; margin-bottom: 14px; }
+    .wrap { width: 100%; margin: 0; padding: 12px 0 24px; }
+    .card { background: transparent; border-radius: 0; padding: 16px; margin: 0; }
     h1 { font-size: 20px; margin: 0 0 8px; }
     .muted { color: var(--muted); font-size: 14px; }
     .row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -33,18 +33,18 @@
       appearance: none; border: 0; border-radius: 12px; padding: 12px 14px; cursor: pointer;
       background: var(--btn); color: white; font-weight: 600; font-size: 14px;
     }
-    .btn-ghost { background: transparent; border: 1px solid rgba(255,255,255,.12); color: var(--txt); }
+    .btn-ghost { background: rgba(255,255,255,.06); border: 0; color: var(--txt); }
 
     /* ===== positions list ===== */
     .positions-header { display: flex; justify-content: space-between; align-items: center; }
     .list { display: grid; gap: 8px; }
-    .item { display: grid; grid-template-columns: 1.1fr .6fr .6fr auto; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,.04); }
+    .item { display: grid; grid-template-columns: 1.1fr .6fr .6fr auto; align-items: center; gap: 8px; padding: 14px 16px; }
     .sym { font-weight: 700; letter-spacing: .3px; }
     .pnl { font-variant-numeric: tabular-nums; }
     .pnl.positive { color: var(--ok); }
     .pnl.negative { color: var(--bad); }
     .hold { font-variant-numeric: tabular-nums; color: var(--muted); }
-    .close { background: transparent; border: 1px solid rgba(255,255,255,.16); color: var(--txt); padding: 8px 10px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+    .close { background: rgba(255,255,255,.06); border: 0; color: var(--txt); padding: 8px 12px; border-radius: 10px; font-weight: 700; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -171,14 +171,14 @@
       document.getElementById('btn-ref').onclick    = () => { send('positions'); };
 
       // demo data if not inside Telegram
-      if (!tg) {
+     // if (!tg) {
         setPositions([
           { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
           { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() - 640_000 },
           { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() - 12_000 },
         ]);
       }
-    }
+ //   }
 
     init();
   </script>
