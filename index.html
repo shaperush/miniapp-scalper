@@ -27,7 +27,7 @@
 
     /* ===== HEADER ===== */
     .header {
-      height: 60px; /* restored */
+      height: 60px; /* per request */
       background: var(--btn);
       color: #fff;
       display: flex;
@@ -61,7 +61,7 @@
     .pnl.positive { color: var(--ok); }
     .pnl.negative { color: var(--bad); }
     .hold { font-variant-numeric: tabular-nums; color: var(--muted); }
-    .close { background: rgba(255,255,255,.06); border: 0; color: var(--txt); padding: 8px 12px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+    .close { background: rgba(0,0,0,.06); border: 0; color: var(--txt); padding: 8px 12px; border-radius: 10px; font-weight: 700; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -94,12 +94,19 @@
 
     // ----- Detect BACKEND_URL passed from bot -----
     (function detectBackendUrl(){
-      // Option A: query param in the web_app URL, e.g. ?backend=https%3A%2F%2Fapi.example.com
+      // A) query param in URL: ?backend=...
       try {
-        const qp = new URL(location.href).searchParams.get('backend');
+        const u = new URL(location.href);
+        const qp = u.searchParams.get('backend');
         if (qp) window.BACKEND_URL = decodeURIComponent(qp);
+        // B) hash param: #backend=...
+        if (!window.BACKEND_URL && u.hash) {
+          const h = new URLSearchParams(u.hash.replace(/^#/, ''));
+          const hb = h.get('backend');
+          if (hb) window.BACKEND_URL = decodeURIComponent(hb);
+        }
       } catch(_) {}
-      // Option B: startapp payload (base64url JSON) → initDataUnsafe.start_param or tgWebAppStartParam
+      // C) startapp payload (base64url JSON) → initDataUnsafe.start_param or tgWebAppStartParam
       try {
         const sp = (window.Telegram?.WebApp?.initDataUnsafe?.start_param)
                || new URLSearchParams(location.search).get('tgWebAppStartParam');
@@ -112,7 +119,7 @@
       } catch(_) {}
     })();
 
-    // Theme
+    // Theme: фиксируем белый фон, подтягиваем только акцентные цвета
     function applyTheme(tp = tg?.themeParams || {}) {
       const map = {
         '--btn': tp.button_color,
@@ -128,8 +135,8 @@
       tg.sendData(payload);
     }
 
-    // ==== Backend integration (set your API base, e.g. https://bot.yourdomain.com) ====
-    const BACKEND_URL = window.BACKEND_URL || ""; // TODO: установить URL бэкенда
+    // ==== Backend integration ====
+    const BACKEND_URL = window.BACKEND_URL || ""; // может быть переопределён из URL / start_param
 
     function setHeaderBackend(){
       const el = document.getElementById('header-info');
@@ -139,10 +146,11 @@
     }
 
     async function api(path, { method = 'GET', body = null } = {}) {
-      if (!BACKEND_URL) throw new Error('BACKEND_URL not set');
+      const base = (window.BACKEND_URL || BACKEND_URL || '').trim();
+      if (!base) throw new Error('BACKEND_URL not set');
       const headers = { 'Content-Type': 'application/json' };
       if (tg && tg.initData) headers['X-Telegram-Init-Data'] = tg.initData; // для серверной валидации
-      const res = await fetch(BACKEND_URL + path, {
+      const res = await fetch(base.replace(/\/$/, '') + path, {
         method,
         headers,
         body: body ? JSON.stringify(body) : undefined,
@@ -153,7 +161,6 @@
 
     async function fetchPositions() {
       try {
-        if (!BACKEND_URL) throw new Error('no-backend');
         const res = await api('/positions');
         const data = await res.json();
         setPositions(Array.isArray(data) ? data : (data.positions || []));
@@ -168,44 +175,13 @@
         ]);
         if (tg && tg.showPopup) tg.showPopup({ title: 'Positions', message: 'Отправил запрос боту. Реальные данные смотри в чате.', buttons: [{type:'ok'}]});
       }
-    } catch (e) {
-        console.warn('positions fetch failed:', e);
-        try { send('positions'); } catch(_) {}
-        setPositions([
-          { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
-          { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() -   640_000 },
-          { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() -    12_000 },
-        ]);
-        if (tg && tg.showPopup) tg.showPopup({ title: 'Positions', message: 'Отправил запрос боту. Реальные данные смотри в чате.', buttons: [{type:'ok'}]});
-      }
-    } catch (e) {
-        console.warn('positions fetch failed:', e);
-        // если бэкенда нет — попросим бота прислать позиции в чат
-        try { send('positions'); } catch(_) {}
-        // и покажем заглушку, чтобы UI не пустовал
-        setPositions([
-          { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
-          { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() -   640_000 },
-          { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() -    12_000 },
-        ]);
-        if (tg && tg.showPopup) tg.showPopup({ title: 'Positions', message: 'Отправил запрос боту. Реальные данные смотри в чате.', buttons: [{type:'ok'}]});
-      }
-    } catch (e) {
-        console.warn('positions fetch failed:', e);
-        // fallback: демо
-        setPositions([
-          { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
-          { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() -   640_000 },
-          { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() -    12_000 },
-        ]);
-      }
     }
 
     async function sendAction(action, payload) {
       // отправим событие боту (для логики/триггеров)
       try { send(action, payload); } catch (_) {}
       // и параллельно попробуем бэкенд (если указан)
-      if (BACKEND_URL) {
+      if ((window.BACKEND_URL || BACKEND_URL)) {
         try { await api('/' + action, { method: 'POST', body: payload || {} }); } catch (e) { console.warn('backend action failed', action, e); }
       }
     }
@@ -220,7 +196,7 @@
       return `${pad(h)}:${pad(m)}:${pad(ss)}`;
     }
 
-    // Positions state (ожидаем, что ты заменишь это получением с бэкенда/бота)
+    // Positions state
     let positions = [];
 
     function setPositions(arr){
@@ -282,12 +258,15 @@
       document.getElementById('btn-run').onclick    = () => sendAction('run');
       document.getElementById('btn-ref').onclick    = () => fetchPositions();
 
-      // demo data if not inside Telegram
-      if (!tg) {
+      // если BACKEND_URL уже есть — сразу подгрузим реальные позиции
+      if ((window.BACKEND_URL || BACKEND_URL)) {
+        fetchPositions();
+      } else {
+        // иначе — демо (для локального открытия без бота)
         setPositions([
           { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
-          { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() - 640_000 },
-          { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() - 12_000 },
+          { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() -   640_000 },
+          { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() -    12_000 },
         ]);
       }
     }
