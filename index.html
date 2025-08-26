@@ -27,14 +27,13 @@
 
     /* ===== HEADER ===== */
     .header {
-      height: 100px; /* было 70px */
+      height: 60px; /* restored */
       background: var(--btn);
       color: #fff;
       display: flex;
-      align-items: flex-start; /* чтобы опустить контент вниз через padding */
-      justify-content: center;
-      padding: 0 16px; /* обнулим старый padding */
-      padding-top: calc(30px + env(safe-area-inset-top, 0px)); /* опускаем контент на 30px */
+      align-items: center; /* center vertically */
+      justify-content: center; /* center horizontally */
+      padding: 0 16px;
     }
     .header-title { font-weight: 800; letter-spacing: .2px; text-align: center; width: 100%; margin: 0; }
 
@@ -159,6 +158,17 @@
         const data = await res.json();
         setPositions(Array.isArray(data) ? data : (data.positions || []));
       } catch (e) {
+        console.warn('positions fetch failed:', e);
+        try { send('positions'); } catch(_) {}
+        // fallback demo so UI isn't empty
+        setPositions([
+          { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
+          { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() -   640_000 },
+          { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() -    12_000 },
+        ]);
+        if (tg && tg.showPopup) tg.showPopup({ title: 'Positions', message: 'Отправил запрос боту. Реальные данные смотри в чате.', buttons: [{type:'ok'}]});
+      }
+    } catch (e) {
         console.warn('positions fetch failed:', e);
         try { send('positions'); } catch(_) {}
         setPositions([
