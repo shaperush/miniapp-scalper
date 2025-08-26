@@ -67,7 +67,7 @@
 </head>
 <body>
   <header class="header">
-    <div id="total-pnl" class="header-title">total pnl: 0.00%</div>
+    <div id="header-info" class="header-title">backend: not set</div>
   </header>
   <div class="wrap">
     <!-- ACTIONS (edge-to-edge) -->
@@ -93,6 +93,26 @@
   <script>
     const tg = window.Telegram?.WebApp;
 
+    // ----- Detect BACKEND_URL passed from bot -----
+    (function detectBackendUrl(){
+      // Option A: query param in the web_app URL, e.g. ?backend=https%3A%2F%2Fapi.example.com
+      try {
+        const qp = new URL(location.href).searchParams.get('backend');
+        if (qp) window.BACKEND_URL = decodeURIComponent(qp);
+      } catch(_) {}
+      // Option B: startapp payload (base64url JSON) → initDataUnsafe.start_param or tgWebAppStartParam
+      try {
+        const sp = (window.Telegram?.WebApp?.initDataUnsafe?.start_param)
+               || new URLSearchParams(location.search).get('tgWebAppStartParam');
+        if (sp) {
+          const pad = (s)=> s + '='.repeat((4 - (s.length % 4)) % 4);
+          const json = atob(pad(sp.replace(/-/g,'+').replace(/_/g,'/')));
+          const data = JSON.parse(json);
+          if (data && data.backend) window.BACKEND_URL = data.backend;
+        }
+      } catch(_) {}
+    })();
+
     // Theme
     function applyTheme(tp = tg?.themeParams || {}) {
       const map = {
@@ -108,6 +128,78 @@
       if (!tg) { console.log('[debug send]', payload); return; }
       tg.sendData(payload);
     }
+
+    // ==== Backend integration (set your API base, e.g. https://bot.yourdomain.com) ====
+    const BACKEND_URL = window.BACKEND_URL || ""; // TODO: установить URL бэкенда
+
+    function setHeaderBackend(){
+      const el = document.getElementById('header-info');
+      if (!el) return;
+      const url = (window.BACKEND_URL || BACKEND_URL || '').trim();
+      el.textContent = url ? url : 'backend: not set';
+    }
+
+    async function api(path, { method = 'GET', body = null } = {}) {
+      if (!BACKEND_URL) throw new Error('BACKEND_URL not set');
+      const headers = { 'Content-Type': 'application/json' };
+      if (tg && tg.initData) headers['X-Telegram-Init-Data'] = tg.initData; // для серверной валидации
+      const res = await fetch(BACKEND_URL + path, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res;
+    }
+
+    async function fetchPositions() {
+      try {
+        if (!BACKEND_URL) throw new Error('no-backend');
+        const res = await api('/positions');
+        const data = await res.json();
+        setPositions(Array.isArray(data) ? data : (data.positions || []));
+      } catch (e) {
+        console.warn('positions fetch failed:', e);
+        try { send('positions'); } catch(_) {}
+        setPositions([
+          { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
+          { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() -   640_000 },
+          { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() -    12_000 },
+        ]);
+        if (tg && tg.showPopup) tg.showPopup({ title: 'Positions', message: 'Отправил запрос боту. Реальные данные смотри в чате.', buttons: [{type:'ok'}]});
+      }
+    } catch (e) {
+        console.warn('positions fetch failed:', e);
+        // если бэкенда нет — попросим бота прислать позиции в чат
+        try { send('positions'); } catch(_) {}
+        // и покажем заглушку, чтобы UI не пустовал
+        setPositions([
+          { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
+          { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() -   640_000 },
+          { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() -    12_000 },
+        ]);
+        if (tg && tg.showPopup) tg.showPopup({ title: 'Positions', message: 'Отправил запрос боту. Реальные данные смотри в чате.', buttons: [{type:'ok'}]});
+      }
+    } catch (e) {
+        console.warn('positions fetch failed:', e);
+        // fallback: демо
+        setPositions([
+          { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
+          { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() -   640_000 },
+          { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() -    12_000 },
+        ]);
+      }
+    }
+
+    async function sendAction(action, payload) {
+      // отправим событие боту (для логики/триггеров)
+      try { send(action, payload); } catch (_) {}
+      // и параллельно попробуем бэкенд (если указан)
+      if (BACKEND_URL) {
+        try { await api('/' + action, { method: 'POST', body: payload || {} }); } catch (e) { console.warn('backend action failed', action, e); }
+      }
+    }
+
     function pad(n){ return String(n).padStart(2,'0'); }
     function fmtDuration(ms){
       ms = Math.max(0, ms|0);
@@ -147,19 +239,9 @@
       root.querySelectorAll('.close').forEach(btn => {
         btn.onclick = () => {
           const sym = btn.getAttribute('data-symbol');
-          send('close', { symbol: sym });
+          sendAction('close', { symbol: sym });
         };
       });
-      // total pnl header update
-      try {
-        const total = positions.reduce((s,p)=> s + (Number(p.pnl)||0), 0);
-        const el = document.getElementById('total-pnl');
-        if (el) {
-          const sign = total > 0 ? '+' : total < 0 ? '' : '';
-          el.textContent = `total pnl: ${sign}${(total*100).toFixed(2)}%`;
-          el.style.color = total > 0 ? 'var(--ok)' : total < 0 ? 'var(--bad)' : '#fff';
-        }
-      } catch(_) {}
       // initial update of timers
       updateHolds();
     }
@@ -174,26 +256,21 @@
     setInterval(updateHolds, 1000);
 
     function init(){
+      setHeaderBackend();
       if (tg){
         tg.ready();
         tg.expand();
         applyTheme();
+        setHeaderBackend();
         tg.onEvent('themeChanged', () => applyTheme());
         try { tg.MainButton.hide(); } catch(e) {}
       }
 
       // top actions
-      document.getElementById('btn-status').onclick = () => send('status');
-      document.getElementById('btn-stop').onclick   = () => send('stop');
-      document.getElementById('btn-run').onclick    = () => send('run');
-      document.getElementById('btn-ref').onclick = () => {
-        setPositions([
-          { symbol:'BTCUSDT', pnl: +0.0134, open_ts: Date.now() - 2_500_000 },
-          { symbol:'ETHUSDT', pnl: -0.0042, open_ts: Date.now() - 640_000 },
-          { symbol:'SOLUSDT', pnl: +0.0069, open_ts: Date.now() - 12_000 },
-        ]);
-        if (tg) send('positions');
-      };
+      document.getElementById('btn-status').onclick = () => sendAction('status');
+      document.getElementById('btn-stop').onclick   = () => sendAction('stop');
+      document.getElementById('btn-run').onclick    = () => sendAction('run');
+      document.getElementById('btn-ref').onclick    = () => fetchPositions();
 
       // demo data if not inside Telegram
       if (!tg) {
